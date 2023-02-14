@@ -1,0 +1,117 @@
+# environment setup
+env_name: tabletop_manipulation
+device: cuda
+
+# task settings
+seed: 0
+num_train_frames: 1000000
+discount: 0.99
+action_repeat: 1
+
+# logging
+exp_name: ${env_name}
+save_snapshot: false
+save_video: true
+save_train_video: false
+use_tb: true
+
+# agent
+lr: 3e-4
+num_seed_frames: 10000
+feature_dim: 50
+policy_switch_frequency: 200
+manual_reset_frequency: 10000
+oversample_count: 32
+batch_size: 256
+
+# vision settings
+from_vision: true
+share_encoder: 0
+frame_stack: 1
+height: 84
+width: 84
+
+# replay buffer
+replay_buffer_size: 2000000
+replay_buffer_num_workers: 0
+nstep: 1
+
+# eval
+eval_mode: false
+eval_dir: ???
+eval_checkpoint_idx: ???
+num_eval_episodes: 20
+eval_every_frames: 5000
+
+gt_reward: true
+early_terminate: false
+
+forward_agent:
+  _target_: agents.VICEAgent
+  obs_shape: ??? # to be specified later
+  action_shape: ??? # to be specified later
+  device: ${device}
+  lr: ${lr}
+  critic_target_tau: 0.005
+  reward_scale_factor: 1.0
+  use_tb: ${use_tb}
+  hidden_dim: 256
+  feature_dim: ${feature_dim}
+  from_vision: ${from_vision}
+  share_encoder: ${share_encoder}
+  # REDQ settings
+  num_Q: 10
+  utd_ratio: 2
+  train_alpha: false
+  target_entropy: default
+  # VICE
+  reward_type: logd
+  mixup: true
+  spectral_norm: true
+  gaussian_noise_coef: 0.0
+  trunk: true
+  # BC regularization
+  # start_step in linear offset = ${num_seed_frames}
+  bc_reg_lambda: linear_offset(1.0, 0.1, 10000, 50000)
+  # bc_reg_lambda: 0.0
+
+backward_agent:
+  _target_: agents.VICEAgent
+  obs_shape: ??? # to be specified later
+  action_shape: ??? # to be specified later
+  device: ${device}
+  lr: ${lr}
+  critic_target_tau: 0.005
+  reward_scale_factor: 1.0
+  use_tb: ${use_tb}
+  hidden_dim: 256
+  feature_dim: ${feature_dim}
+  from_vision: ${from_vision}
+  share_encoder: ${share_encoder}
+  # REDQ settings
+  num_Q: 10
+  utd_ratio: 2
+  train_alpha: true
+  target_entropy: auto_large
+  # VICE
+  reward_type: default # defaults to -log(1-d)
+  mixup: true
+  spectral_norm: true
+  gaussian_noise_coef: 0.0
+  trunk: true
+  # BC regularization
+  bc_reg_lambda: 0.0
+
+medal_discriminator:
+  train_interval: 100
+  train_steps_per_iteration: 1
+  batch_size: 512
+
+vice_discriminator:
+  train_interval: 1000
+  train_steps_per_iteration: 1
+  batch_size: 512
+
+hydra:
+  run:
+    dir: ./exp_local/medalvice_multig/${exp_name}/${seed}/${now:%Y.%m.%d.%H.%M.%S}

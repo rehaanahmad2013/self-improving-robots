@@ -1,0 +1,119 @@
+# environment setup
+env_name: franka_peginsertion_v3 # specify franka env here
+device: cuda
+
+# train/eval settings
+mode: train # train or eval
+seed: 0
+num_train_frames: 10000000
+discount: 0.99
+action_repeat: 1
+# set to a checkpoint path when restoring, otherwise None
+work_dir_restore: None
+restore_snapshot_idx: ???
+
+# if evaluating
+eval_dir: ???
+eval_checkpoint_idx: ???
+num_eval_episodes: 100
+
+# logging
+exp_name: ${env_name}/medal
+save_snapshot: true
+save_video: true
+save_train_video: false
+use_tb: true
+
+# agent
+lr: 3e-4
+num_seed_frames: 2000
+feature_dim: 256
+forward_switch_length: 200
+backward_switch_length: 200
+joint_reset_frequency: 1000
+oversample_count: 64
+batch_size: 256
+
+# vision settings
+from_vision: true
+share_encoder: 0
+frame_stack: 1
+height: 100
+width: 100
+
+# replay buffer
+replay_buffer_size: 2000000
+replay_buffer_num_workers: 0
+nstep: 1 # nstep > 1 will slow computation a lot
+
+forward_agent:
+  _target_: agents.VICEFrankaAgent
+  obs_shape: ??? # to be specified later
+  action_shape: ??? # to be specified later
+  device: ${device}
+  lr: ${lr}
+  critic_target_tau: 0.005
+  reward_scale_factor: 1.0
+  use_tb: ${use_tb}
+  hidden_dim: 1024
+  feature_dim: ${feature_dim}
+  from_vision: ${from_vision}
+  share_encoder: ${share_encoder}
+  # REDQ settings
+  num_Q: 5
+  utd_ratio: 1
+  train_alpha: false
+  target_entropy: default
+  # VICE
+  reward_type: logd
+  mixup: true
+  gaussian_noise_coef: 0.0
+  trunk: true
+  # start_step in linear offset = ${num_seed_frames}
+  bc_reg_lambda: linear_offset(1.0,0.1,2500,50000)
+  # franka
+  disc_state_dim: 0 # [0: no state, 4/5: ee, 8: joint]
+  ignore_view: third # [None, first, third]
+
+backward_agent:
+  _target_: agents.VICEFrankaAgent
+  obs_shape: ??? # to be specified later
+  action_shape: ??? # to be specified later
+  device: ${device}
+  lr: ${lr}
+  critic_target_tau: 0.005
+  reward_scale_factor: 1.0
+  use_tb: ${use_tb}
+  hidden_dim: 1024
+  feature_dim: ${feature_dim}
+  from_vision: ${from_vision}
+  share_encoder: ${share_encoder}
+  # REDQ settings
+  num_Q: 5
+  utd_ratio: 1
+  train_alpha: false
+  target_entropy: default
+  # VICE
+  reward_type: logd # defaults to -log(1-d)
+  mixup: true
+  gaussian_noise_coef: 0.0
+  trunk: true
+  # BC regularization
+  bc_reg_lambda: linear_offset(1.0,0.25,2500,50000)
+  # franka
+  disc_state_dim: 0 # [0: no state, 4/5: ee, 8: joint]
+  ignore_view: None # [None, first, third]
+
+medal_discriminator:
+  train_interval: 500
+  train_steps_per_iteration: 1
+  batch_size: 512
+
+vice_discriminator:
+  train_interval: 1000
+  train_steps_per_iteration: 1
+  batch_size: 512
+
+hydra:
+  run:
+    dir: /iris/u/architsh/code/ARLBaselines/exp_local/franka/${exp_name}/${seed}/${mode}/${now:%Y.%m.%d.%H.%M.%S}

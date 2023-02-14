@@ -1,0 +1,37 @@
+name: arl116
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.8
+  - pip=21.1.3
+  - absl-py=0.13.0
+  - pyparsing=2.4.7
+  - jupyterlab=3.0.14
+  - scikit-image=0.18.1
+  - nvidia::cudatoolkit=11.6
+  - pytorch::pytorch
+  - pytorch::torchvision
+  - pytorch::torchaudio
+  - pip:
+    - gym==0.23.1
+    - numpy==1.22.2
+    - termcolor==1.1.0
+    - tensorboard==2.8.0
+    - imageio==2.9.0
+    - imageio-ffmpeg==0.4.4
+    - hydra-core==1.1.0
+    - hydra-submitit-launcher==1.1.5
+    - pandas==1.3.0
+    - ipdb==0.13.9
+    - yapf==0.31.0
+    - sklearn==0.0
+    - matplotlib==3.4.2
+    - opencv-python==4.5.3.56
+    - git+https://github.com/rlworkgroup/metaworld.git@master#egg=metaworld
+    - dm_env
+    - bsuite
+    - mujoco-py<2.2,>=2.1
+    - functorch
+    - protobuf==3.20.*
+    - patchelf
