@@ -25,7 +25,6 @@ oversample_count: 32
 batch_size: 256
 
 # vision settings
-from_vision: true
 share_encoder: 0
 frame_stack: 1
 height: 84
@@ -57,7 +56,6 @@ forward_agent:
   use_tb: ${use_tb}
   hidden_dim: 256
   feature_dim: ${feature_dim}
-  from_vision: ${from_vision}
   share_encoder: ${share_encoder}
   # REDQ settings
   num_Q: 10
@@ -86,7 +84,6 @@ backward_agent:
   use_tb: ${use_tb}
   hidden_dim: 256
   feature_dim: ${feature_dim}
-  from_vision: ${from_vision}
   share_encoder: ${share_encoder}
   # REDQ settings
   num_Q: 10

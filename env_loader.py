@@ -13,7 +13,7 @@ from backend.wrappers import (
 )
 import hydra
 
-def make(name, action_repeat, from_vision, reward_type='sparse', height=84, width=84, num_frames=1):
+def make(name, action_repeat, reward_type='sparse', height=84, width=84, num_frames=1):
 	# setup franka environment
 	if 'franka' in name:
 		from robot_env import RobotEnv
@@ -108,42 +108,35 @@ def make(name, action_repeat, from_vision, reward_type='sparse', height=84, widt
 
 		vision_goal_states = None
 		if name == 'sawyer_peg':
-			if from_vision:
-				forward_demos = dict(np.load(hydra.utils.get_original_cwd() + '/vision_demos/sawyer_peg/forward.npz'))
-				goal_states = vision_goal_states = None 
-				backward_demos = dict(np.load(hydra.utils.get_original_cwd() + '/vision_demos/sawyer_peg/backward.npz'))
-			else:
-				forward_demos = dict(np.load('/iris/u/ahmedah/test_arl/ARLBaselines/sawyer_demos/total.npz'))
-
+			forward_demos = dict(np.load(hydra.utils.get_original_cwd() + '/vision_demos/sawyer_peg/forward.npz'))
+			goal_states = vision_goal_states = None 
+			backward_demos = dict(np.load(hydra.utils.get_original_cwd() + '/vision_demos/sawyer_peg/backward.npz'))
+			
 		elif name == 'sawyer_door':
-			if from_vision:
-				forward_demos = dict(np.load('/iris/u/ahmedah/test_arl/ARLBaselines/fwd_door_demos/total_imgs.npz'))
-				goal_states = vision_goal_states = None
-				backward_demos = None
+			forward_demos = dict(np.load('/iris/u/ahmedah/test_arl/ARLBaselines/fwd_door_demos/total_imgs.npz'))
+			goal_states = vision_goal_states = None
+			backward_demos = None
 
 		elif name == 'tabletop_manipulation':
-			if from_vision:
-				forward_demos = np.load(hydra.utils.get_original_cwd() + '/vision_demos/tabletop/forward.pkl', allow_pickle=True)
-				backward_demos = np.load(hydra.utils.get_original_cwd() + '/vision_demos/tabletop/backward.pkl', allow_pickle=True)
+			forward_demos = np.load(hydra.utils.get_original_cwd() + '/vision_demos/tabletop/forward.pkl', allow_pickle=True)
+			backward_demos = np.load(hydra.utils.get_original_cwd() + '/vision_demos/tabletop/backward.pkl', allow_pickle=True)
 
 		# add wrappers
-		train_env = DMEnvFromGymWrapper(train_env, from_vision, height, width)
+		train_env = DMEnvFromGymWrapper(train_env, height, width)
 		train_env = ObsActionDTypeWrapper(train_env, np.float32, np.float32)
 		train_env = ActionRepeatWrapper(train_env, action_repeat)
 		train_env = ActionScaleWrapper(train_env, minimum=-1.0, maximum=+1.0)
-		if from_vision:
-			train_env = GoalVisionWrapper(train_env, num_frames=num_frames, goal_states=goal_states, height=height, width=width, vision_goal_states=vision_goal_states)
+		train_env = GoalVisionWrapper(train_env, num_frames=num_frames, goal_states=goal_states, height=height, width=width, vision_goal_states=vision_goal_states)
 		train_env = ExtendedTimeStepWrapper(train_env)
 
-		eval_env = DMEnvFromGymWrapper(eval_env, from_vision, height, width)
+		eval_env = DMEnvFromGymWrapper(eval_env, height, width)
 		eval_env = ObsActionDTypeWrapper(eval_env, np.float32, np.float32)
 		eval_env = ActionRepeatWrapper(eval_env, action_repeat)
 		eval_env = ActionScaleWrapper(eval_env, minimum=-1.0, maximum=+1.0)
-		if from_vision:
-			eval_env = GoalVisionWrapper(eval_env, num_frames=num_frames, goal_states=goal_states, height=height, width=width, vision_goal_states=vision_goal_states)
-			vision_goal_states = eval_env.get_goal_images()
-			if name == 'tabletop_manipulation':
-				goal_states = [goal_states, vision_goal_states]
+		eval_env = GoalVisionWrapper(eval_env, num_frames=num_frames, goal_states=goal_states, height=height, width=width, vision_goal_states=vision_goal_states)
+		vision_goal_states = eval_env.get_goal_images()
+		if name == 'tabletop_manipulation':
+			goal_states = [goal_states, vision_goal_states]
 		eval_env = ExtendedTimeStepWrapper(eval_env)
 
 		return train_env, eval_env, reset_states, goal_states, forward_demos, backward_demos

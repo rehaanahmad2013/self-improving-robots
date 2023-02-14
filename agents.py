@@ -13,7 +13,7 @@ from utils import optimal_transport_plan, cosine_distance, euclidean_distance
 class SACAgent:
 	def __init__(self, obs_shape, action_shape, device, lr, feature_dim,
 				 hidden_dim, critic_target_tau, reward_scale_factor,    
-				 use_tb, from_vision, bc_reg_lambda=0.0, repr_dim=None):
+				 use_tb, bc_reg_lambda=0.0, repr_dim=None):
 
 		self.obs_shape = obs_shape
 		self.action_shape = action_shape
@@ -24,7 +24,6 @@ class SACAgent:
 		self.critic_target_tau = critic_target_tau
 		self.reward_scale_factor = reward_scale_factor
 		self.use_tb = use_tb
-		self.from_vision = from_vision
 
 		# Changed log_std_bounds from [-10, 2] -> [-20, 2]
 		self.log_std_bounds = [-20, 2]
@@ -34,13 +33,10 @@ class SACAgent:
 		self.repr_dim = repr_dim
 
 		# models
-		if self.from_vision:
-			self.encoder = Encoder(obs_shape).to(device)
-			# overwrite hard-coded representation dim for convnet
-			self.encoder.repr_dim = repr_dim if repr_dim else self.encoder.repr_dim
-			self.model_repr_dim = self.encoder.repr_dim
-		else:
-			self.model_repr_dim = self.obs_shape[0]
+		self.encoder = Encoder(obs_shape).to(device)
+		# overwrite hard-coded representation dim for convnet
+		self.encoder.repr_dim = repr_dim if repr_dim else self.encoder.repr_dim
+		self.model_repr_dim = self.encoder.repr_dim
 
 		self.actor = SACActor(self.model_repr_dim, action_shape, feature_dim,
 							  hidden_dim, self.log_std_bounds).to(device)
@@ -56,17 +52,15 @@ class SACAgent:
 		self.log_alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=lr)
 
 		# optimizers
-		if self.from_vision:
-			self.encoder_opt = torch.optim.Adam(self.encoder.parameters(), lr=lr)
-			# data augmentation
-			self.aug = RandomShiftsAug(pad=4)
+		self.encoder_opt = torch.optim.Adam(self.encoder.parameters(), lr=lr)
+		# data augmentation
+		self.aug = RandomShiftsAug(pad=4)
 
 		self.actor_opt = torch.optim.Adam(self.actor.parameters(), lr=lr)
 		self.critic_opt = torch.optim.Adam(self.critic.parameters(), lr=lr)
 
 		self.training = True
-		if self.from_vision:
-			self.encoder.train()
+		self.encoder.train()
 		self.actor.train()
 		self.critic.train()
 		self.critic_target.train()
@@ -77,15 +71,13 @@ class SACAgent:
 
 	def train(self, training=True):
 		self.training = training
-		if self.from_vision:
-			self.encoder.train(training)
+		self.encoder.train(training)
 		self.actor.train(training)
 		self.critic.train(training)
 
 	def act(self, obs, uniform_action=False, eval_mode=False):
 		obs = torch.as_tensor(obs, device=self.device)
-		if self.from_vision:
-			obs = self.encoder(obs.unsqueeze(0))[0]
+		obs = self.encoder(obs.unsqueeze(0))[0]
 
 		dist = self.actor(obs)
 		if eval_mode:
@@ -124,13 +116,11 @@ class SACAgent:
 			metrics['critic_loss'] = critic_loss.item()
 
 		# optimize encoder and critic
-		if self.from_vision:
-			self.encoder_opt.zero_grad(set_to_none=True)
+		self.encoder_opt.zero_grad(set_to_none=True)
 		self.critic_opt.zero_grad(set_to_none=True)
 		critic_loss.backward()
 		self.critic_opt.step()
-		if self.from_vision:
-			self.encoder_opt.step()
+		self.encoder_opt.step()
 
 		return metrics
 
@@ -214,13 +204,12 @@ class SACAgent:
 		not_done[not_done == 2] = 0
 
 		# augment
-		if self.from_vision:
-			obs = self.aug(obs.float())
-			next_obs = self.aug(next_obs.float())
-			# encode
-			obs = self.encoder(obs)
-			with torch.no_grad():
-				next_obs = self.encoder(next_obs)
+		obs = self.aug(obs.float())
+		next_obs = self.aug(next_obs.float())
+		# encode
+		obs = self.encoder(obs)
+		with torch.no_grad():
+			next_obs = self.encoder(next_obs)
 
 		if self.use_tb:
 			metrics['batch_reward'] = reward.mean().item()
@@ -256,7 +245,7 @@ class SACAgent:
 class DDPGAgent:
 	def __init__(self, obs_shape, action_shape, device, lr, feature_dim,
 				 hidden_dim, critic_target_tau, num_expl_steps,
-				 stddev_schedule, stddev_clip, use_tb, from_vision):
+				 stddev_schedule, stddev_clip, use_tb):
 		self.obs_shape = obs_shape
 		self.action_shape = action_shape
 		self.lr = lr
@@ -268,15 +257,11 @@ class DDPGAgent:
 		self.num_expl_steps = num_expl_steps
 		self.stddev_schedule = stddev_schedule
 		self.stddev_clip = stddev_clip
-		self.from_vision = from_vision
-
+		
 		# models
-		if self.from_vision:
-			self.encoder = Encoder(obs_shape).to(device)
-			model_repr_dim = self.encoder.repr_dim
-		else:
-			model_repr_dim = obs_shape[0]
-
+		self.encoder = Encoder(obs_shape).to(device)
+		model_repr_dim = self.encoder.repr_dim
+	
 		self.actor = DDPGActor(model_repr_dim, action_shape, feature_dim,
 							   hidden_dim).to(device)
 		
@@ -287,10 +272,9 @@ class DDPGAgent:
 		self.critic_target.load_state_dict(self.critic.state_dict())
 
 		# optimizers
-		if self.from_vision:
-			self.encoder_opt = torch.optim.Adam(self.encoder.parameters(), lr=lr)
-		   # data augmentation
-			self.aug = RandomShiftsAug(pad=4)
+		self.encoder_opt = torch.optim.Adam(self.encoder.parameters(), lr=lr)
+		# data augmentation
+		self.aug = RandomShiftsAug(pad=4)
 
 		self.actor_opt = torch.optim.Adam(self.actor.parameters(), lr=lr)
 		self.critic_opt = torch.optim.Adam(self.critic.parameters(), lr=lr)
@@ -300,15 +284,13 @@ class DDPGAgent:
 
 	def train(self, training=True):
 		self.training = training
-		if self.from_vision:
-			self.encoder.train(training)
+		self.encoder.train(training)
 		self.actor.train(training)
 		self.critic.train(training)
 
 	def act(self, obs, uniform_action=False, eval_mode=False):
 		obs = torch.as_tensor(obs, device=self.device)
-		if self.from_vision:
-			obs = self.encoder(obs.unsqueeze(0))
+		obs = self.encoder(obs.unsqueeze(0))
 
 		stddev = utils.schedule(self.stddev_schedule, step)
 		dist = self.actor(obs, stddev)
@@ -346,14 +328,11 @@ class DDPGAgent:
 			metrics['critic_loss'] = critic_loss.item()
 
 		# optimize encoder and critic
-		if self.from_vision:
-			self.encoder_opt.zero_grad(set_to_none=True)
+		self.encoder_opt.zero_grad(set_to_none=True)
 		self.critic_opt.zero_grad(set_to_none=True)
 		critic_loss.backward()
 		self.critic_opt.step()
-	
-		if self.from_vision:
-			self.encoder_opt.step()
+		self.encoder_opt.step()
 
 		return metrics
 
@@ -395,13 +374,12 @@ class DDPGAgent:
 		obs, action, reward, discount, next_obs, step_type, next_step_type = trans_tuple
 
 		# augment
-		if self.from_vision:
-			obs = self.aug(obs.float())
-			next_obs = self.aug(next_obs.float())
-			# encode
-			obs = self.encoder(obs)
-			with torch.no_grad():
-				next_obs = self.encoder(next_obs)
+		obs = self.aug(obs.float())
+		next_obs = self.aug(next_obs.float())
+		# encode
+		obs = self.encoder(obs)
+		with torch.no_grad():
+			next_obs = self.encoder(next_obs)
 
 		if self.use_tb:
 			metrics['batch_reward'] = reward.mean().item()
@@ -481,8 +459,7 @@ class REDQAgent(SACAgent):
 
 	def train(self, training=True):
 		self.training = training
-		if self.from_vision:
-			self.encoder.train(training)
+		self.encoder.train(training)
 		self.actor.train(training)
 
 	def ensemble_forward_pass(self, obs, action):
@@ -524,15 +501,13 @@ class REDQAgent(SACAgent):
 			metrics['critic_loss'] = critic_loss_total.item()
 
 		# optimize encoder and critic ensemble
-		if self.from_vision:
-			self.encoder_opt.zero_grad(set_to_none=True)
+		self.encoder_opt.zero_grad(set_to_none=True)
 
 		self.critic_opt.zero_grad(set_to_none=True)
 		critic_loss_total.backward()
 		self.critic_opt.step()
 
-		if self.from_vision:
-			self.encoder_opt.step()
+		self.encoder_opt.step()
 
 		return metrics
 
@@ -585,13 +560,12 @@ class REDQAgent(SACAgent):
 			not_done[not_done == 2] = 0
 
 			# augment
-			if self.from_vision:
-				obs = self.aug(obs.float())
-				next_obs = self.aug(next_obs.float())
-				# encode
-				obs = self.encoder(obs)
-				with torch.no_grad():
-					next_obs = self.encoder(next_obs)
+			obs = self.aug(obs.float())
+			next_obs = self.aug(next_obs.float())
+			# encode
+			obs = self.encoder(obs)
+			with torch.no_grad():
+				next_obs = self.encoder(next_obs)
 
 			# update critic
 			metrics.update(
@@ -606,11 +580,10 @@ class REDQAgent(SACAgent):
 		if trans_tuple_demo is not None:
 			obs_d, action_d, _, _, _, _, _ = trans_tuple_demo
 			
-			if self.from_vision:
-				obs_d = self.aug(obs_d.float())
-				# TODO: pass the gradients from BC loss to the encoder
-				with torch.no_grad():
-					obs_d = self.encoder(obs_d)
+			obs_d = self.aug(obs_d.float())
+			# TODO: pass the gradients from BC loss to the encoder
+			with torch.no_grad():
+				obs_d = self.encoder(obs_d)
 
 			if self.bc_reg_lambda == 'soft_qfilter':
 				with torch.no_grad():
@@ -677,22 +650,14 @@ class DACAgent(REDQAgent):
 		self.spectral_norm = spectral_norm
 		self.discrim_val_data = discrim_val_data
 
-		if self.from_vision:
-			self.discriminator = DiscrimVisionAction(obs_shape=self.obs_shape,
-													 action_dim=self.action_shape[0],
-													 feature_dim=self.feature_dim,
-													 hidden_dim=discrim_hidden_size,
-													 create_inp_encoder=not bool(self.share_encoder),
-													 use_spectral_norm=self.spectral_norm,
-													 use_trunk=self.use_trunk,).to(self.device)
-		else:
-			self.discriminator = nn.Sequential(nn.Linear(self.obs_shape[0] + self.action_shape[0],
-														discrim_hidden_size),
-											   nn.ReLU(inplace=True),
-											   nn.Linear(discrim_hidden_size, discrim_hidden_size),
-											   nn.ReLU(inplace=True),
-											   nn.Linear(discrim_hidden_size, 1)).to(self.device)
-
+		self.discriminator = DiscrimVisionAction(obs_shape=self.obs_shape,
+													action_dim=self.action_shape[0],
+													feature_dim=self.feature_dim,
+													hidden_dim=discrim_hidden_size,
+													create_inp_encoder=not bool(self.share_encoder),
+													use_spectral_norm=self.spectral_norm,
+													use_trunk=self.use_trunk,).to(self.device)
+	
 		self.discrim_opt = torch.optim.Adam(self.discriminator.parameters(), lr=discrim_lr)
 
 	def update_discriminator(self, pos_replay_iter, neg_replay_iter):
@@ -708,30 +673,30 @@ class DACAgent(REDQAgent):
 
 		'''augment the images and encode + trunk images before mixup,
 		the shared encoder has not seen mixed up images.'''
-		if self.from_vision:
-			# TODO: maybe remove augmentation from the goal image?
-			obs_pos = self.aug(obs_pos.float())
-			obs_neg = self.aug(obs_neg.float())
+		
+		# TODO: maybe remove augmentation from the goal image?
+		obs_pos = self.aug(obs_pos.float())
+		obs_neg = self.aug(obs_neg.float())
 
-			# frozen shared encoder
-			if self.share_encoder == 1:
-				with torch.no_grad():
-					obs_pos = self.encoder(obs_pos)
-					obs_neg = self.encoder(obs_neg)
-			# update shared encoder
-			elif self.share_encoder == 2:
+		# frozen shared encoder
+		if self.share_encoder == 1:
+			with torch.no_grad():
 				obs_pos = self.encoder(obs_pos)
 				obs_neg = self.encoder(obs_neg)
-			# use and train discriminator's own encoder
-			elif self.share_encoder == 0:
-				obs_pos = self.discriminator.encode(obs_pos)
-				obs_neg = self.discriminator.encode(obs_neg)
+		# update shared encoder
+		elif self.share_encoder == 2:
+			obs_pos = self.encoder(obs_pos)
+			obs_neg = self.encoder(obs_neg)
+		# use and train discriminator's own encoder
+		elif self.share_encoder == 0:
+			obs_pos = self.discriminator.encode(obs_pos)
+			obs_neg = self.discriminator.encode(obs_neg)
 
-			# run mixup on low-dim / trunk representation
-			# TODO: maybe do mixup before the trunk layer?
-			if self.use_trunk:
-				obs_pos = self.discriminator.trunk_pass(obs_pos)
-				obs_neg = self.discriminator.trunk_pass(obs_neg)
+		# run mixup on low-dim / trunk representation
+		# TODO: maybe do mixup before the trunk layer?
+		if self.use_trunk:
+			obs_pos = self.discriminator.trunk_pass(obs_pos)
+			obs_neg = self.discriminator.trunk_pass(obs_neg)
 
 		# TODO: add gaussian noise to just the actions independently?
 		pos_input = torch.cat([obs_pos, action_pos], 1)
@@ -761,23 +726,19 @@ class DACAgent(REDQAgent):
 		loss = torch.nn.BCELoss()
 		m = nn.Sigmoid()
 
-		if self.from_vision:
-			# TODO: action should still obey the bounds after adding gaussian noise
-			images = images + self.gaussian_noise_coef * torch.randn_like(images)
-			output = m(self.discriminator.final_out(images))
-			discrim_loss = loss(output, labels)
-		else:
-			output = m(self.discriminator(images))
-			discrim_loss = loss(output, labels)
-
-		if self.from_vision and self.share_encoder == 2:
+		# TODO: action should still obey the bounds after adding gaussian noise
+		images = images + self.gaussian_noise_coef * torch.randn_like(images)
+		output = m(self.discriminator.final_out(images))
+		discrim_loss = loss(output, labels)
+		
+		if self.share_encoder == 2:
 			self.encoder_opt.zero_grad(set_to_none=True)
 
 		self.discrim_opt.zero_grad(set_to_none=True)
 		discrim_loss.backward()
 		self.discrim_opt.step()
 
-		if self.from_vision and self.share_encoder == 2:
+		if self.share_encoder == 2:
 			self.encoder_opt.step()
 
 		if self.use_tb:
@@ -794,16 +755,13 @@ class DACAgent(REDQAgent):
 		return metrics
 
 	def compute_reward(self, obs, action, return_sig=False, evald=False):
-		if self.from_vision:
-			if evald and type(obs) is np.ndarray:
-					obs = torch.from_numpy(obs).to(self.device)
-					action = torch.from_numpy(action).to(self.device)
-			if self.share_encoder:
-				obs = self.encoder(obs)
-			sig_term = torch.sigmoid(self.discriminator(obs, action))
-		else:
-			sig_term = torch.sigmoid(self.discriminator(torch.cat([obs, action], axis=1)))
-
+		if evald and type(obs) is np.ndarray:
+				obs = torch.from_numpy(obs).to(self.device)
+				action = torch.from_numpy(action).to(self.device)
+		if self.share_encoder:
+			obs = self.encoder(obs)
+		sig_term = torch.sigmoid(self.discriminator(obs, action))
+	
 		if self.reward_type == 'logd':
 			actual_reward = torch.log(torch.minimum(sig_term + self.eps, torch.tensor(1.)))
 		else:
@@ -855,21 +813,14 @@ class VICEAgent(DACAgent):
 		self.num_goals = self.pos_dataset.shape[0]
 		self.eps = 1e-10
 
-		if self.from_vision:
-			self.discriminator = DiscrimVision(obs_shape=self.obs_shape,
-											   feature_dim=self.feature_dim,
-											   hidden_dim=self.discrim_hidden_size,
-											   repr_dim=self.model_repr_dim,
-											   create_inp_encoder=not bool(self.share_encoder),
-											   use_spectral_norm=self.spectral_norm,
-											   use_trunk=self.use_trunk,).to(self.device)
-		else:
-			self.discriminator = nn.Sequential(nn.Linear(self.obs_shape[0], discrim_hidden_size),
-											   nn.ReLU(inplace=True),
-											   nn.Linear(discrim_hidden_size, discrim_hidden_size),
-											   nn.ReLU(inplace=True),
-											   nn.Linear(discrim_hidden_size, 1)).to(self.device)
-
+		self.discriminator = DiscrimVision(obs_shape=self.obs_shape,
+											feature_dim=self.feature_dim,
+											hidden_dim=self.discrim_hidden_size,
+											repr_dim=self.model_repr_dim,
+											create_inp_encoder=not bool(self.share_encoder),
+											use_spectral_norm=self.spectral_norm,
+											use_trunk=self.use_trunk,).to(self.device)
+		
 		self.discrim_opt = torch.optim.Adam(self.discriminator.parameters(), lr=discrim_lr)
 		self.zero_alpha = torch.tensor(0.).to(self.device)
 
@@ -889,27 +840,26 @@ class VICEAgent(DACAgent):
 
 		'''augment the images and encode + trunk images before mixup,
 		the shared encoder has not seen mixed up images.'''
-		if self.from_vision:
-			obs_pos = self.aug(obs_pos.float())
-			obs_neg = self.aug(obs_neg.float())
+		obs_pos = self.aug(obs_pos.float())
+		obs_neg = self.aug(obs_neg.float())
 
-			# frozen shared encoder
-			if self.share_encoder == 1:
-				with torch.no_grad():
-					obs_pos = self.encoder(obs_pos)
-					obs_neg = self.encoder(obs_neg)
-			# update shared encoder
-			elif self.share_encoder == 2:
+		# frozen shared encoder
+		if self.share_encoder == 1:
+			with torch.no_grad():
 				obs_pos = self.encoder(obs_pos)
 				obs_neg = self.encoder(obs_neg)
-			# use and train discriminator's own encoder
-			elif self.share_encoder == 0:
-				obs_pos = self.discriminator.encode(obs_pos)
-				obs_neg = self.discriminator.encode(obs_neg)
+		# update shared encoder
+		elif self.share_encoder == 2:
+			obs_pos = self.encoder(obs_pos)
+			obs_neg = self.encoder(obs_neg)
+		# use and train discriminator's own encoder
+		elif self.share_encoder == 0:
+			obs_pos = self.discriminator.encode(obs_pos)
+			obs_neg = self.discriminator.encode(obs_neg)
 
-			if self.use_trunk:
-				obs_pos = self.discriminator.trunk_pass(obs_pos)
-				obs_neg = self.discriminator.trunk_pass(obs_neg)
+		if self.use_trunk:
+			obs_pos = self.discriminator.trunk_pass(obs_pos)
+			obs_neg = self.discriminator.trunk_pass(obs_neg)
 
 		pos_input = obs_pos
 		neg_input = obs_neg
@@ -939,22 +889,18 @@ class VICEAgent(DACAgent):
 		loss = torch.nn.BCELoss()
 		m = nn.Sigmoid()
 
-		if self.from_vision:
-			images = images + self.gaussian_noise_coef * torch.randn_like(images)
-			output = m(self.discriminator.final_out(images))
-			discrim_loss = loss(output, labels)
-		else:
-			output = m(self.discriminator(images))
-			discrim_loss = loss(output, labels)
-
-		if self.from_vision and self.share_encoder == 2:
+		images = images + self.gaussian_noise_coef * torch.randn_like(images)
+		output = m(self.discriminator.final_out(images))
+		discrim_loss = loss(output, labels)
+		
+		if self.share_encoder == 2:
 			self.encoder_opt.zero_grad(set_to_none=True)
 
 		self.discrim_opt.zero_grad(set_to_none=True)
 		discrim_loss.backward()
 		self.discrim_opt.step()
 
-		if self.from_vision and self.share_encoder == 2:
+		if self.share_encoder == 2:
 			self.encoder_opt.step()
 
 		if self.use_tb:
@@ -972,12 +918,11 @@ class VICEAgent(DACAgent):
 
 	def compute_reward(self, obs, action=None, return_sig=False, evald=False):
 		del action
-		if self.from_vision:
-			if evald and type(obs) is np.ndarray:
-				obs = torch.from_numpy(obs).to(self.device)
+		if evald and type(obs) is np.ndarray:
+			obs = torch.from_numpy(obs).to(self.device)
 
-			if self.share_encoder:
-				obs = self.encoder(obs)
+		if self.share_encoder:
+			obs = self.encoder(obs)
 
 		sig_term = torch.sigmoid(self.discriminator(obs))
 		if self.reward_type == 'logd':
@@ -1031,21 +976,13 @@ class DACSACAgent(SACAgent):
 		self.spectral_norm = spectral_norm
 		self.discrim_val_data = discrim_val_data
 
-		if self.from_vision:
-			self.discriminator = DiscrimVisionAction(obs_shape=self.obs_shape,
-													 action_dim=self.action_shape[0],
-													 feature_dim=self.feature_dim,
-													 hidden_dim=discrim_hidden_size,
-													 create_inp_encoder=not bool(self.share_encoder),
-													 use_spectral_norm=self.spectral_norm,
-													 use_trunk=self.use_trunk,).to(self.device)
-		else:
-			self.discriminator = nn.Sequential(nn.Linear(self.obs_shape[0] + self.action_shape[0],
-														discrim_hidden_size),
-											   nn.ReLU(inplace=True),
-											   nn.Linear(discrim_hidden_size, discrim_hidden_size),
-											   nn.ReLU(inplace=True),
-											   nn.Linear(discrim_hidden_size, 1)).to(self.device)
+		self.discriminator = DiscrimVisionAction(obs_shape=self.obs_shape,
+													action_dim=self.action_shape[0],
+													feature_dim=self.feature_dim,
+													hidden_dim=discrim_hidden_size,
+													create_inp_encoder=not bool(self.share_encoder),
+													use_spectral_norm=self.spectral_norm,
+													use_trunk=self.use_trunk,).to(self.device)
 
 		self.discrim_opt = torch.optim.Adam(self.discriminator.parameters(), lr=discrim_lr)
 
@@ -1062,30 +999,29 @@ class DACSACAgent(SACAgent):
 
 		'''augment the images and encode + trunk images before mixup,
 		the shared encoder has not seen mixed up images.'''
-		if self.from_vision:
-			# TODO: maybe remove augmentation from the goal image?
-			obs_pos = self.aug(obs_pos.float())
-			obs_neg = self.aug(obs_neg.float())
+		# TODO: maybe remove augmentation from the goal image?
+		obs_pos = self.aug(obs_pos.float())
+		obs_neg = self.aug(obs_neg.float())
 
-			# frozen shared encoder
-			if self.share_encoder == 1:
-				with torch.no_grad():
-					obs_pos = self.encoder(obs_pos)
-					obs_neg = self.encoder(obs_neg)
-			# update shared encoder
-			elif self.share_encoder == 2:
+		# frozen shared encoder
+		if self.share_encoder == 1:
+			with torch.no_grad():
 				obs_pos = self.encoder(obs_pos)
 				obs_neg = self.encoder(obs_neg)
-			# use and train discriminator's own encoder
-			elif self.share_encoder == 0:
-				obs_pos = self.discriminator.encode(obs_pos)
-				obs_neg = self.discriminator.encode(obs_neg)
+		# update shared encoder
+		elif self.share_encoder == 2:
+			obs_pos = self.encoder(obs_pos)
+			obs_neg = self.encoder(obs_neg)
+		# use and train discriminator's own encoder
+		elif self.share_encoder == 0:
+			obs_pos = self.discriminator.encode(obs_pos)
+			obs_neg = self.discriminator.encode(obs_neg)
 
-			# run mixup on low-dim / trunk representation
-			# TODO: maybe do mixup before the trunk layer?
-			if self.use_trunk:
-				obs_pos = self.discriminator.trunk_pass(obs_pos)
-				obs_neg = self.discriminator.trunk_pass(obs_neg)
+		# run mixup on low-dim / trunk representation
+		# TODO: maybe do mixup before the trunk layer?
+		if self.use_trunk:
+			obs_pos = self.discriminator.trunk_pass(obs_pos)
+			obs_neg = self.discriminator.trunk_pass(obs_neg)
 
 		# TODO: add gaussian noise to just the actions independently?
 		pos_input = torch.cat([obs_pos, action_pos], 1)
@@ -1115,23 +1051,19 @@ class DACSACAgent(SACAgent):
 		loss = torch.nn.BCELoss()
 		m = nn.Sigmoid()
 
-		if self.from_vision:
-			# TODO: action should still obey the bounds after adding gaussian noise
-			images = images + self.gaussian_noise_coef * torch.randn_like(images)
-			output = m(self.discriminator.final_out(images))
-			discrim_loss = loss(output, labels)
-		else:
-			output = m(self.discriminator(images))
-			discrim_loss = loss(output, labels)
-
-		if self.from_vision and self.share_encoder == 2:
+		# TODO: action should still obey the bounds after adding gaussian noise
+		images = images + self.gaussian_noise_coef * torch.randn_like(images)
+		output = m(self.discriminator.final_out(images))
+		discrim_loss = loss(output, labels)
+		
+		if self.share_encoder == 2:
 			self.encoder_opt.zero_grad(set_to_none=True)
 
 		self.discrim_opt.zero_grad(set_to_none=True)
 		discrim_loss.backward()
 		self.discrim_opt.step()
 
-		if self.from_vision and self.share_encoder == 2:
+		if self.share_encoder == 2:
 			self.encoder_opt.step()
 
 		if self.use_tb:
@@ -1148,15 +1080,12 @@ class DACSACAgent(SACAgent):
 		return metrics
 
 	def compute_reward(self, obs, action, return_sig=False, evald=False):
-		if self.from_vision:
-			if evald and type(obs) is np.ndarray:
-					obs = torch.from_numpy(obs).to(self.device)
-					action = torch.from_numpy(action).to(self.device)
-			if self.share_encoder:
-				obs = self.encoder(obs)
-			sig_term = torch.sigmoid(self.discriminator(obs, action))
-		else:
-			sig_term = torch.sigmoid(self.discriminator(torch.cat([obs, action], axis=1)))
+		if evald and type(obs) is np.ndarray:
+				obs = torch.from_numpy(obs).to(self.device)
+				action = torch.from_numpy(action).to(self.device)
+		if self.share_encoder:
+			obs = self.encoder(obs)
+		sig_term = torch.sigmoid(self.discriminator(obs, action))
 
 		if self.reward_type == 'logd':
 			actual_reward = torch.log(torch.minimum(sig_term + self.eps, torch.tensor(1.)))
@@ -1209,21 +1138,14 @@ class VICESACAgent(DACSACAgent):
 		self.num_goals = self.pos_dataset.shape[0]
 		self.eps = 1e-10
 
-		if self.from_vision:
-			self.discriminator = DiscrimVision(obs_shape=self.obs_shape,
-											   feature_dim=self.feature_dim,
-											   hidden_dim=self.discrim_hidden_size,
-											   repr_dim=self.model_repr_dim,
-											   create_inp_encoder=not bool(self.share_encoder),
-											   use_spectral_norm=self.spectral_norm,
-											   use_trunk=self.use_trunk,).to(self.device)
-		else:
-			self.discriminator = nn.Sequential(nn.Linear(self.obs_shape[0], discrim_hidden_size),
-											   nn.ReLU(inplace=True),
-											   nn.Linear(discrim_hidden_size, discrim_hidden_size),
-											   nn.ReLU(inplace=True),
-											   nn.Linear(discrim_hidden_size, 1)).to(self.device)
-
+		self.discriminator = DiscrimVision(obs_shape=self.obs_shape,
+											feature_dim=self.feature_dim,
+											hidden_dim=self.discrim_hidden_size,
+											repr_dim=self.model_repr_dim,
+											create_inp_encoder=not bool(self.share_encoder),
+											use_spectral_norm=self.spectral_norm,
+											use_trunk=self.use_trunk,).to(self.device)
+		
 		self.discrim_opt = torch.optim.Adam(self.discriminator.parameters(), lr=discrim_lr)
 		self.zero_alpha = torch.tensor(0.).to(self.device)
 
@@ -1243,27 +1165,26 @@ class VICESACAgent(DACSACAgent):
 
 		'''augment the images and encode + trunk images before mixup,
 		the shared encoder has not seen mixed up images.'''
-		if self.from_vision:
-			obs_pos = self.aug(obs_pos.float())
-			obs_neg = self.aug(obs_neg.float())
+		obs_pos = self.aug(obs_pos.float())
+		obs_neg = self.aug(obs_neg.float())
 
-			# frozen shared encoder
-			if self.share_encoder == 1:
-				with torch.no_grad():
-					obs_pos = self.encoder(obs_pos)
-					obs_neg = self.encoder(obs_neg)
-			# update shared encoder
-			elif self.share_encoder == 2:
+		# frozen shared encoder
+		if self.share_encoder == 1:
+			with torch.no_grad():
 				obs_pos = self.encoder(obs_pos)
 				obs_neg = self.encoder(obs_neg)
-			# use and train discriminator's own encoder
-			elif self.share_encoder == 0:
-				obs_pos = self.discriminator.encode(obs_pos)
-				obs_neg = self.discriminator.encode(obs_neg)
+		# update shared encoder
+		elif self.share_encoder == 2:
+			obs_pos = self.encoder(obs_pos)
+			obs_neg = self.encoder(obs_neg)
+		# use and train discriminator's own encoder
+		elif self.share_encoder == 0:
+			obs_pos = self.discriminator.encode(obs_pos)
+			obs_neg = self.discriminator.encode(obs_neg)
 
-			if self.use_trunk:
-				obs_pos = self.discriminator.trunk_pass(obs_pos)
-				obs_neg = self.discriminator.trunk_pass(obs_neg)
+		if self.use_trunk:
+			obs_pos = self.discriminator.trunk_pass(obs_pos)
+			obs_neg = self.discriminator.trunk_pass(obs_neg)
 
 		pos_input = obs_pos
 		neg_input = obs_neg
@@ -1293,22 +1214,18 @@ class VICESACAgent(DACSACAgent):
 		loss = torch.nn.BCELoss()
 		m = nn.Sigmoid()
 
-		if self.from_vision:
-			images = images + self.gaussian_noise_coef * torch.randn_like(images)
-			output = m(self.discriminator.final_out(images))
-			discrim_loss = loss(output, labels)
-		else:
-			output = m(self.discriminator(images))
-			discrim_loss = loss(output, labels)
-
-		if self.from_vision and self.share_encoder == 2:
+		images = images + self.gaussian_noise_coef * torch.randn_like(images)
+		output = m(self.discriminator.final_out(images))
+		discrim_loss = loss(output, labels)
+		
+		if self.share_encoder == 2:
 			self.encoder_opt.zero_grad(set_to_none=True)
 
 		self.discrim_opt.zero_grad(set_to_none=True)
 		discrim_loss.backward()
 		self.discrim_opt.step()
 
-		if self.from_vision and self.share_encoder == 2:
+		if self.share_encoder == 2:
 			self.encoder_opt.step()
 
 		if self.use_tb:
@@ -1326,12 +1243,11 @@ class VICESACAgent(DACSACAgent):
 
 	def compute_reward(self, obs, action=None, return_sig=False, evald=False):
 		del action
-		if self.from_vision:
-			if evald and type(obs) is np.ndarray:
-				obs = torch.from_numpy(obs).to(self.device)
+		if evald and type(obs) is np.ndarray:
+			obs = torch.from_numpy(obs).to(self.device)
 
-			if self.share_encoder:
-				obs = self.encoder(obs)
+		if self.share_encoder:
+			obs = self.encoder(obs)
 
 		sig_term = torch.sigmoid(self.discriminator(obs))
 		if self.reward_type == 'logd':
@@ -1378,21 +1294,14 @@ class VICEMixtureAgent(VICEAgent):
 		self._num_policies = num_policies
 		self._diversity_weight = diversity_weight
 
-		if self.from_vision:
-			self.latent_discriminator = LatentDiscriminator(num_outs=self._num_policies,
-															obs_shape=self.obs_shape,
-													  		feature_dim=self.feature_dim,
-													  		hidden_dim=self.discrim_hidden_size,
-													  		repr_dim=self.model_repr_dim,
-													  		create_inp_encoder=not bool(self.share_encoder),
-													  		use_spectral_norm=self.spectral_norm,
-													  		use_trunk=self.use_trunk,).to(self.device)
-		else:
-			self.latent_discriminator = nn.Sequential(nn.Linear(self.obs_shape[0], self.discrim_hidden_size),
-											   		  nn.ReLU(inplace=True),
-											   		  nn.Linear(self.discrim_hidden_size, self.discrim_hidden_size),
-											   		  nn.ReLU(inplace=True),
-											   		  nn.Linear(self.discrim_hidden_size, self._num_policies)).to(self.device)
+		self.latent_discriminator = LatentDiscriminator(num_outs=self._num_policies,
+														obs_shape=self.obs_shape,
+														feature_dim=self.feature_dim,
+														hidden_dim=self.discrim_hidden_size,
+														repr_dim=self.model_repr_dim,
+														create_inp_encoder=not bool(self.share_encoder),
+														use_spectral_norm=self.spectral_norm,
+														use_trunk=self.use_trunk,).to(self.device)
 
 		self.latent_disc_opt = torch.optim.Adam(self.latent_discriminator.parameters(), lr=3e-4)
 		self.switch_policy() # initialize a latent
@@ -1420,8 +1329,7 @@ class VICEMixtureAgent(VICEAgent):
 
 	def act(self, obs, uniform_action=False, eval_mode=False):
 		obs = torch.as_tensor(obs, device=self.device)
-		if self.from_vision:
-			obs = self.encoder(obs.unsqueeze(0))[0]
+		obs = self.encoder(obs.unsqueeze(0))[0]
 
 		dist = self.actor(torch.concat([obs, self.torch_latent], dim=-1).unsqueeze(0))
 		if eval_mode:
@@ -1446,13 +1354,12 @@ class VICEMixtureAgent(VICEAgent):
 			not_done[not_done == 2] = 0
 
 			# augment
-			if self.from_vision:
-				obs = self.aug(obs.float())
-				next_obs = self.aug(next_obs.float())
-				# encode
-				obs = self.encoder(obs)
-				with torch.no_grad():
-					next_obs = self.encoder(next_obs)
+			obs = self.aug(obs.float())
+			next_obs = self.aug(next_obs.float())
+			# encode
+			obs = self.encoder(obs)
+			with torch.no_grad():
+				next_obs = self.encoder(next_obs)
 
 			# concatenate with latent
 			obs = torch.cat([obs, latent], dim=-1)
@@ -1470,11 +1377,10 @@ class VICEMixtureAgent(VICEAgent):
 		# NOTE: BC regularization isn't implemented for mixture agents, should be 0.0
 		if trans_tuple_demo is not None:
 			obs_d, action_d, _, _, _, _, _ = trans_tuple_demo
-			if self.from_vision:
-				obs_d = self.aug(obs_d.float())
-				# TODO: pass the gradients from BC loss to the encoder
-				with torch.no_grad():
-					obs_d = self.encoder(obs_d)
+			obs_d = self.aug(obs_d.float())
+			# TODO: pass the gradients from BC loss to the encoder
+			with torch.no_grad():
+				obs_d = self.encoder(obs_d)
 
 			if self.bc_reg_lambda == 'soft_qfilter':
 				with torch.no_grad():
@@ -1519,29 +1425,28 @@ class VICEMixtureAgent(VICEAgent):
 		metrics = dict()
 
 		obs, latent = utils.to_torch(next(replay_iter), self.device)[:2]
-		if self.from_vision:
-			obs = self.aug(obs.float())
+		obs = self.aug(obs.float())
 
-			# encode the observations if sharing the encoder
-			# encoder is not updated by latent disc's gradients
-			if self.share_encoder == 1:
-				with torch.no_grad():
-					obs = self.encoder(obs)
-			# encoder is _updated_ by latent disc's gradients
-			elif self.share_encoder == 2:
+		# encode the observations if sharing the encoder
+		# encoder is not updated by latent disc's gradients
+		if self.share_encoder == 1:
+			with torch.no_grad():
 				obs = self.encoder(obs)
+		# encoder is _updated_ by latent disc's gradients
+		elif self.share_encoder == 2:
+			obs = self.encoder(obs)
 
 		output = torch.softmax(self.latent_discriminator(obs), dim=1)
 		discrim_loss = torch.nn.CrossEntropyLoss()(output, latent)
 
-		if self.from_vision and self.share_encoder == 2:
+		if self.share_encoder == 2:
 			self.encoder_opt.zero_grad(set_to_none=True)
 
 		self.latent_disc_opt.zero_grad(set_to_none=True)
 		discrim_loss.backward()
 		self.latent_disc_opt.step()
 
-		if self.from_vision and self.share_encoder == 2:
+		if self.share_encoder == 2:
 			self.encoder_opt.step()
 
 		if self.use_tb:
@@ -1553,9 +1458,8 @@ class VICEMixtureAgent(VICEAgent):
 
 	def compute_reward(self, obs, latent, action=None, return_sig=False):
 		del action
-		if self.from_vision:
-			if self.share_encoder:
-				obs = self.encoder(obs)
+		if self.share_encoder:
+			obs = self.encoder(obs)
 
 		# NOTE: the MEDAL/VICE discriminator does not see the latent
 		sig_term = torch.sigmoid(self.discriminator(obs))
@@ -2054,13 +1958,9 @@ class VICEFrankaAgent(REDQFrankaAgent):
 		loss = torch.nn.BCELoss()
 		m = nn.Sigmoid()
 
-		if self.from_vision:
-			images = images + self.gaussian_noise_coef * torch.randn_like(images)
-			output = m(self.discriminator.final_out(images))
-			discrim_loss = loss(output, labels)
-		else:
-			output = m(self.discriminator(images))
-			discrim_loss = loss(output, labels)
+		images = images + self.gaussian_noise_coef * torch.randn_like(images)
+		output = m(self.discriminator.final_out(images))
+		discrim_loss = loss(output, labels)
 
 		if self.share_encoder == 2:
 			self.encoder_opt.zero_grad(set_to_none=True)
@@ -2133,7 +2033,7 @@ class VICEFrankaAgent(REDQFrankaAgent):
 
 class BCAgent:
 	def __init__(self, obs_shape, action_shape, device, lr, feature_dim,
-				 hidden_dim, use_tb, from_vision, aug_pad=4, repr_dim=None):
+				 hidden_dim, use_tb, aug_pad=4, repr_dim=None):
 
 		self.obs_shape = obs_shape
 		self.action_shape = action_shape
@@ -2142,20 +2042,16 @@ class BCAgent:
 		self.hidden_dim = hidden_dim
 		self.device = device
 		self.use_tb = use_tb
-		self.from_vision = from_vision
 		self.aug_pad = aug_pad
 		self.aug = None
 
 		# models
-		if self.from_vision:
-			self.encoder = Encoder(obs_shape).to(device)
-			self.encoder_opt = torch.optim.Adam(self.encoder.parameters(), lr=lr)
-			if self.aug_pad > 0:
-				self.aug = RandomShiftsAug(pad=self.aug_pad)
-			self.model_repr_dim = self.encoder.repr_dim if repr_dim is None else repr_dim
-		else:
-			self.model_repr_dim = self.obs_shape[0]
-
+		self.encoder = Encoder(obs_shape).to(device)
+		self.encoder_opt = torch.optim.Adam(self.encoder.parameters(), lr=lr)
+		if self.aug_pad > 0:
+			self.aug = RandomShiftsAug(pad=self.aug_pad)
+		self.model_repr_dim = self.encoder.repr_dim if repr_dim is None else repr_dim
+		
 		self.actor = DDPGActor(self.model_repr_dim, self.action_shape, self.feature_dim,
 							   self.hidden_dim).to(device)
 		self.actor_opt = torch.optim.Adam(self.actor.parameters(), lr=lr)
@@ -2165,13 +2061,11 @@ class BCAgent:
 
 	def train(self, training=True):
 		self.actor.train(training)
-		if self.from_vision:
-			self.encoder.train(training)
+		self.encoder.train(training)
 
 	def act(self, obs, uniform_action=False, eval_mode=False):
 		obs = torch.as_tensor(obs, device=self.device)
-		if self.from_vision:
-			obs = self.encoder(obs.unsqueeze(0))[0]
+		obs = self.encoder(obs.unsqueeze(0))[0]
 
 		dist = self.actor(obs, std=0.1)
 		if eval_mode:
@@ -2189,11 +2083,10 @@ class BCAgent:
 		obs, action, _, _, _, _, _ = utils.to_torch(next(demo_iter), self.device)
 
 		# augment and encode
-		if self.from_vision:
-			if self.aug is not None:
-				obs = self.aug(obs.float())
-			obs = self.encoder(obs)
-			self.encoder_opt.zero_grad(set_to_none=True)
+		if self.aug is not None:
+			obs = self.aug(obs.float())
+		obs = self.encoder(obs)
+		self.encoder_opt.zero_grad(set_to_none=True)
 
 		dist = self.actor(obs, std=0.1)
 		log_prob = dist.log_prob(action).sum(-1, keepdim=True)
@@ -2205,8 +2098,7 @@ class BCAgent:
 
 		# update networks
 		self.actor_opt.step()
-		if self.from_vision:
-			self.encoder_opt.step()
+		self.encoder_opt.step()
 
 		if self.use_tb:
 			metrics['actor_loss'] = actor_loss.item()
@@ -2215,15 +2107,13 @@ class BCAgent:
 	
 	def compute_log_prob(self, obs, action):
 		''' useful when only the loss is needed, for example validation.'''
-		if self.from_vision:
-			obs = self.encoder(obs)
+		obs = self.encoder(obs)
 		dist = self.actor(obs, std=0.1)
 		return dist.log_prob(action).sum(-1, keepdim=True).mean()
 
 	def save_snapshot(self):
 		keys_to_save = ['actor']
-		if self.from_vision:
-			keys_to_save += ['encoder']
+		keys_to_save += ['encoder']
 		payload = {k: self.__dict__[k] for k in keys_to_save}
 		return payload
 

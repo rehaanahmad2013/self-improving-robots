@@ -15,15 +15,14 @@ _MUST_BROADCAST = (
 
 
 class DMEnvFromGymWrapper(DMEnvFromGym):
-    def __init__(self, gym_env: gym.Env, from_vision=False, height=84, width=84):
+    def __init__(self, gym_env: gym.Env, height=84, width=84):
         self.gym_env = gym_env
         # Convert gym action and observation spaces to dm_env specs.
         obs_box = self.gym_env.observation_space
-        if from_vision:
-            obs_box = Box(
-                np.full((height, width, 3), 0),
-                np.full((height, width, 3), 255)
-            )
+        obs_box = Box(
+            np.full((height, width, 3), 0),
+            np.full((height, width, 3), 255)
+        )
 
         self._observation_spec = space2spec(obs_box,
                                             name='observation')

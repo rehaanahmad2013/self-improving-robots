@@ -34,7 +34,7 @@ def make_agent(obs_spec, action_spec, cfg, pos_dataset):
     cfg.obs_shape = obs_spec.shape
     cfg.action_shape = action_spec.shape
     
-    return VICESACAgent(obs_shape=cfg.obs_shape,
+    return VICEAgent(obs_shape=cfg.obs_shape,
                      action_shape=cfg.action_shape,
                      device=cfg.device,
                      lr=cfg.lr,
@@ -44,7 +44,11 @@ def make_agent(obs_spec, action_spec, cfg, pos_dataset):
                      reward_scale_factor=cfg.reward_scale_factor,
                      bc_reg_lambda=cfg.bc_reg_lambda,
                      use_tb=cfg.use_tb,
-                     from_vision=cfg.from_vision,
+                     # REDQ settings  
+                     num_Q=cfg.num_Q,
+                     utd_ratio=cfg.utd_ratio,
+                     train_alpha=cfg.train_alpha,
+                     target_entropy=cfg.target_entropy,
                      # VICE config
                      share_encoder=cfg.share_encoder,
                      use_trunk=cfg.trunk,
@@ -53,31 +57,6 @@ def make_agent(obs_spec, action_spec, cfg, pos_dataset):
                      spectral_norm=cfg.spectral_norm,
                      gaussian_noise_coef=cfg.gaussian_noise_coef,
                      pos_dataset=pos_dataset,)
-
-    # return VICEAgent(obs_shape=cfg.obs_shape,
-    #                  action_shape=cfg.action_shape,
-    #                  device=cfg.device,
-    #                  lr=cfg.lr,
-    #                  feature_dim=cfg.feature_dim,
-    #                  hidden_dim=cfg.hidden_dim,
-    #                  critic_target_tau=cfg.critic_target_tau, 
-    #                  reward_scale_factor=cfg.reward_scale_factor,
-    #                  bc_reg_lambda=cfg.bc_reg_lambda,
-    #                  use_tb=cfg.use_tb,
-    #                  from_vision=cfg.from_vision,
-    #                  # REDQ settings  
-    #                  num_Q=cfg.num_Q,
-    #                  utd_ratio=cfg.utd_ratio,
-    #                  train_alpha=cfg.train_alpha,
-    #                  target_entropy=cfg.target_entropy,
-    #                  # VICE config
-    #                  share_encoder=cfg.share_encoder,
-    #                  use_trunk=cfg.trunk,
-    #                  mixup=cfg.mixup,
-    #                  reward_type=cfg.reward_type,
-    #                  spectral_norm=cfg.spectral_norm,
-    #                  gaussian_noise_coef=cfg.gaussian_noise_coef,
-    #                  pos_dataset=pos_dataset,)
 
 class Workspace:
     def __init__(self, cfg, work_dir=None):
@@ -111,7 +90,6 @@ class Workspace:
         self.logger = Logger(self.work_dir, use_tb=self.cfg.use_tb)
         self.train_env , self.eval_env, _, _, self.forward_demos, self.backward_demos = env_loader.make(self.cfg.env_name,
                                                                                                         action_repeat=self.cfg.action_repeat,
-                                                                                                        from_vision=self.cfg.from_vision,
                                                                                                         reward_type='sparse',
                                                                                                         height=self.cfg.height,
                                                                                                         width=self.cfg.width,
@@ -126,12 +104,12 @@ class Workspace:
             goal_keys = np.concatenate([np.arange(start, end) for start, end in zip(goal_keys_start, goal_keys_end)], axis=0)
 
         self.forward_success_states = self.forward_demos['observations'][goal_keys].copy()
-        self.forward_success_states = self.forward_success_states.transpose(0, 3, 1, 2) if self.cfg.from_vision else self.forward_success_states
-        self.forward_success_states = torch.from_numpy(self.forward_success_states)#.to(self.device).type(torch.cuda.FloatTensor)
+        self.forward_success_states = self.forward_success_states.transpose(0, 3, 1, 2)
+        self.forward_success_states = torch.from_numpy(self.forward_success_states)
 
         self.backward_success_states = self.forward_demos['observations'].copy()
-        self.backward_success_states = self.backward_success_states.transpose(0, 3, 1, 2) if self.cfg.from_vision else self.backward_success_states
-        self.backward_success_states = torch.from_numpy(self.backward_success_states)#.to(self.device).type(torch.cuda.FloatTensor)
+        self.backward_success_states = self.backward_success_states.transpose(0, 3, 1, 2) 
+        self.backward_success_states = torch.from_numpy(self.backward_success_states)
 
         # create replay buffer
         data_specs = (self.train_env.observation_spec(),

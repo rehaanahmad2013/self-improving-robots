@@ -42,7 +42,6 @@ def make_agent(obs_spec, action_spec, cfg, pos_dataset, skip_reward_computation=
                            reward_scale_factor=cfg.reward_scale_factor,
                            bc_reg_lambda=cfg.bc_reg_lambda,
                            use_tb=cfg.use_tb,
-                           from_vision=cfg.from_vision,
                            repr_dim=32*43*43, # output size of the convnet for 100x100 images
                            # REDQ settings
                            num_Q=cfg.num_Q,
@@ -84,7 +83,6 @@ class Workspace:
         self.logger = Logger(self.work_dir, use_tb=self.cfg.use_tb)
         self.train_env , self.eval_env, _, _, self.forward_demos, self.backward_demos = env_loader.make(self.cfg.env_name,
                                                                                                         action_repeat=self.cfg.action_repeat,
-                                                                                                        from_vision=True,
                                                                                                         height=self.cfg.height,
                                                                                                         width=self.cfg.width,
                                                                                                         num_frames=1)
