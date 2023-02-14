@@ -29,7 +29,8 @@ git clone https://github.com/architsharma97/earl_benchmark.git
 cd earl_benchmark/
 pip install -e .
 ```
-Train an autonomous RL agent using MEDAL:
+
+Download and unzip the [demos folder](https://drive.google.com/file/d/10cqBpy-tA8YeiH5LO7hxXhLTX5YoPqG6/view?usp=sharing) into ARLBaselines. The path ARLBaselines/vision_demos should now have all vision demos necessary to run experiments. Now, train an autonomous RL agent using MEDAL:
 ```sh
 python3 medalplusplus.py
 ```
