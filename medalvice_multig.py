@@ -19,7 +19,7 @@ from dm_env import specs
 from logger import Logger
 from buffers.replay_buffer import ReplayBufferStorage, make_replay_loader
 from video import TrainVideoRecorder, VideoRecorder
-from agents import VICEAgent, VICESACAgent
+from agents import VICEAgent
 from backend.timestep import StepType, ExtendedTimeStep
 import shutil
 
