@@ -30,7 +30,7 @@ cd earl_benchmark/
 pip install -e .
 ```
 
-Download and unzip the [demos folder](https://drive.google.com/file/d/10cqBpy-tA8YeiH5LO7hxXhLTX5YoPqG6/view?usp=sharing) into ARLBaselines. The path ARLBaselines/vision_demos should now have all vision demos necessary to run experiments. Now, train an autonomous RL agent using MEDAL:
+Download and unzip the [demos folder](https://drive.google.com/file/d/10cqBpy-tA8YeiH5LO7hxXhLTX5YoPqG6/view?usp=sharing) locally. The folder 'vision_demos' should now have all vision demos necessary to run experiments. Now, train an autonomous RL agent using MEDAL:
 ```sh
 python3 medalplusplus.py
 ```
@@ -39,6 +39,14 @@ Monitor results:
 ```sh
 tensorboard --logdir exp_local
 ```
+
+To run ```medalplusplus.py``` to reproduce the robot experiments, please follow the instructions under the ```iris_robots``` submodule. Please also run:
+```
+git clone --recurse-submodules --remote-submodules https://github.com/ahmeda14960/iris_robots.git
+```
+
+To fetch the latest version of our robot environment and the corresponding instructions. You will need to follow the instructions for demo collection
+tailored towards your scene setup and move the subsequent forward/backward demo files under the ``franka_demos`` folder within the respective task subfolder.
 
 ## Acknowledgements
 

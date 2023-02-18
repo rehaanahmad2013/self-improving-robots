@@ -23,34 +23,34 @@ def make(name, action_repeat, reward_type='sparse', height=84, width=84, num_fra
 		DoF = 3
 		if 'cubepickup' in name:
 			episodic_path_length = 200
-			forward_path = f'/iris/u/architsh/code/misc_data/franka_demos/cube_pickup/forward/demos.npz'
+			forward_path = f'{hydra.utils.get_original_cwd()}/franka_demos/cube_pickup/forward/demos.npz'
 			forward_demos = dict(np.load(forward_path))
-			backward_path = f'/iris/u/architsh/code/misc_data/franka_demos/cube_pickup/backward/demos.npz'
+			backward_path = f'{hydra.utils.get_original_cwd()}/franka_demos/cube_pickup/backward/demos.npz'
 			backward_demos = dict(np.load(backward_path))
 		elif 'clothhook' in name:
 			episodic_path_length = 200
-			forward_path = f'/iris/u/architsh/code/misc_data/franka_demos/cloth_hook_v2/forward/demos.npz'
+			forward_path = f'{hydra.utils.get_original_cwd()}/franka_demos/cloth_hook_v2/forward/demos.npz'
 			forward_demos = dict(np.load(forward_path))
-			backward_path = f'/iris/u/architsh/code/misc_data/franka_demos/cloth_hook_v2/backward/demos.npz'
+			backward_path = f'{hydra.utils.get_original_cwd()}/franka_demos/cloth_hook_v2/backward/demos.npz'
 			backward_demos = dict(np.load(backward_path))
 		elif 'clothflatten' in name:
 			episodic_path_length = 500
-			forward_path = f'/iris/u/architsh/code/misc_data/franka_demos/cloth_flatten/forward/demos.npz'
+			forward_path = f'{hydra.utils.get_original_cwd()}/franka_demos/cloth_flatten/forward/demos.npz'
 			forward_demos = dict(np.load(forward_path))
-			backward_path = f'/iris/u/architsh/code/misc_data/franka_demos/cloth_flatten/backward/demos.npz'
+			backward_path = f'{hydra.utils.get_original_cwd()}/franka_demos/cloth_flatten/backward/demos.npz'
 			backward_demos = dict(np.load(backward_path))
 		elif 'bowlcover' in name:
 			episodic_path_length = 300
-			forward_path = f'/iris/u/architsh/code/misc_data/franka_demos/bowl_cover/forward/demos.npz'
+			forward_path = f'{hydra.utils.get_original_cwd()}/franka_demos/bowl_cover/forward/demos.npz'
 			forward_demos = dict(np.load(forward_path))
-			backward_path = f'/iris/u/architsh/code/misc_data/franka_demos/bowl_cover/backward/demos.npz'
+			backward_path = f'{hydra.utils.get_original_cwd()}/franka_demos/bowl_cover/backward/demos.npz'
 			backward_demos = dict(np.load(backward_path))
 		elif 'peginsertion' in name:
 			episodic_path_length = 200
 			DoF = 4
-			forward_path = f'/iris/u/architsh/code/misc_data/franka_demos/peg_insertion_v2/forward/demos.npz'
+			forward_path = f'{hydra.utils.get_original_cwd()}/franka_demos/peg_insertion_v2/forward/demos.npz'
 			forward_demos = dict(np.load(forward_path))
-			backward_path = f'/iris/u/architsh/code/misc_data/franka_demos/peg_insertion_v2/backward/demos.npz'
+			backward_path = f'{hydra.utils.get_original_cwd()}/franka_demos/peg_insertion_v2/backward/demos.npz'
 			backward_demos = dict(np.load(backward_path))
 
 		state_type = 'ee' # can be passed as a parameter if needed
