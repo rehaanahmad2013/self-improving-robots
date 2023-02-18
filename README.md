@@ -23,7 +23,7 @@ conda env create -f conda_env.yml
 conda activate arl116
 ```
 
-### Instruction to run in simulation
+### Instructions to run in simulation
 Install EARL benchmark (optional, but necessary if you want to use the codebase directly):
 ```sh
 git clone https://github.com/architsharma97/earl_benchmark.git
@@ -36,6 +36,7 @@ Download and unzip the [demos folder](https://drive.google.com/file/d/10cqBpy-tA
 python3 medalplusplus.py
 ```
 
+### Instructions to run on robotic platform
 To run on an actual robotic platform, refer to the README within the iris_robots folder.  
 
 Monitor results:
