@@ -113,4 +113,4 @@ vice_discriminator:
 
 hydra:
   run:
-    dir: /iris/u/architsh/code/ARLBaselines/exp_local/franka/${exp_name}/${seed}/${mode}/${now:%Y.%m.%d.%H.%M.%S}
+    dir: exp_local/franka/${exp_name}/${seed}/${mode}/${now:%Y.%m.%d.%H.%M.%S}

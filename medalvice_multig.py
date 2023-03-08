@@ -90,7 +90,6 @@ class Workspace:
         # create logger
         assert self.cfg.env_name == "tabletop_manipulation"
         self.logger = Logger(self.work_dir, use_tb=self.cfg.use_tb)
-        self.print_config()
         # fix this later
         self.obs_dim = 3
         self.state_obs_dim = 6
@@ -175,18 +174,6 @@ class Workspace:
             self.deployed_policy_eval = np.load(self.work_dir / 'deployed_eval.npy').tolist()
         except:
             self.deployed_policy_eval = []
-
-    def print_config(self):
-        print("env name: " + str(self.cfg.env_name))
-        print("seed: " + str(self.cfg.seed))
-        print("oversample count: " + str(self.cfg.oversample_count))
-        print("gt_reward: " + str(self.cfg.gt_reward))
-        print("early terminate: " + str(self.cfg.early_terminate))
-        print("manual reset frequency: " + str(self.cfg.manual_reset_frequency))
-        print("bc reg: linear_offset(1.0, 0.1, 10000, 50000)")
-        print("SAC AGENT")
-        # print("FWD REDQ MODE utd: " + str(self.cfg.forward_agent.utd_ratio) + " numq: " +  str(self.cfg.forward_agent.num_Q))
-        # print("BACK REDQ MODE utd: " + str(self.cfg.backward_agent.utd_ratio) + " numq: " +  str(self.cfg.backward_agent.num_Q))
 
     @property
     def backward_demo_iter(self):
@@ -279,12 +266,9 @@ class Workspace:
         
         return self.cur_id
 
+    # we have a separate function for this, in case you'd like to add extra conditions on when to switch the step
     def should_switch_step(self, glob_step, envreward):
         if (glob_step - self.prev_step) == self.cfg.policy_switch_frequency:
-            self.prev_step = glob_step
-            return True
-
-        if (self.cur_id == 'forward') and (self.cfg.early_terminate) and (envreward == 1.0):
             self.prev_step = glob_step
             return True
 
@@ -406,10 +390,6 @@ class Workspace:
         if self.cfg.save_train_video:
             self.train_video_recorder.init(time_step.observation)
 
-        if (self.cfg.early_terminate) and (self.cfg.gt_reward == False):
-            print("Invalid Configuration: early terminate is True with gt_reward as False")
-            exit()
-
         metrics = None
         episode_step, episode_reward = 0, 0
         # track whether logs have been updated with respective keys
@@ -418,15 +398,14 @@ class Workspace:
             # update the agents
             if not seed_until_step(self.global_step):
                 if self.cur_id == 'forward':
-                    trans_tuple_demo = self.agent[self.cur_id].transition_tuple(self.demo_iter[self.cur_id], gt_reward=self.cfg.gt_reward) if self.cfg.forward_agent.bc_reg_lambda != 0.0 else None
+                    trans_tuple_demo = self.agent[self.cur_id].transition_tuple(self.demo_iter[self.cur_id]) if self.cfg.forward_agent.bc_reg_lambda != 0.0 else None
                 if self.cur_id == 'backward':
-                    trans_tuple_demo = self.agent[self.cur_id].transition_tuple(self.demo_iter[self.cur_id], gt_reward=False) if self.cfg.backward_agent.bc_reg_lambda != 0.0 else None
+                    trans_tuple_demo = self.agent[self.cur_id].transition_tuple(self.demo_iter[self.cur_id]) if self.cfg.backward_agent.bc_reg_lambda != 0.0 else None
 
                 metrics = self.agent[self.cur_id].update(trans_tuple_fn=functools.partial(self.agent[self.cur_id].transition_tuple,
                                                                                           replay_iter=self.replay_iter[self.cur_id],
                                                                                           demo_iter=self.demo_iter[self.cur_id],
                                                                                           oversample_count=self.cfg.oversample_count,
-                                                                                          gt_reward=(self.cfg.gt_reward and self.cur_id=='forward'),
                                                                                           online_buf_len=len(self.replay_buffer[self.cur_id]),
                                                                                           offline_buf_len=len(self.demo_replay_buffer[self.cur_id])),
                                                         step=self.global_step,

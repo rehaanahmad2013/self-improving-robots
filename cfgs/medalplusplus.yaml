@@ -21,7 +21,7 @@ lr: 3e-4
 num_seed_frames: 10000
 feature_dim: 50
 manual_reset_frequency: 25000
-oversample_count: 0
+oversample_count: 32
 batch_size: 256
 
 # vision settings
@@ -41,9 +41,6 @@ eval_dir: ???
 eval_checkpoint_idx: ???
 num_eval_episodes: 20
 eval_every_frames: 5000
-
-gt_reward: true
-early_terminate: false
 
 forward_agent:
   _target_: agents.VICEAgent
@@ -70,7 +67,7 @@ forward_agent:
   trunk: true
   # BC regularization
   # start_step in linear offset = ${num_seed_frames}
-  bc_reg_lambda: 0.0 #linear_offset(1.0, 0.1, 10000, 50000) #linear_offset(1.0,0.0,10000,15000) 
+  bc_reg_lambda: linear_offset(1.0, 0.1, 10000, 50000)
 
 backward_agent:
   _target_: agents.VICEAgent

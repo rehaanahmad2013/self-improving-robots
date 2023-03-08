@@ -618,18 +618,15 @@ class DACAgent(REDQAgent):
 		else:
 			return actual_reward, sig_term
 
-	def transition_tuple(self, replay_iter, demo_iter=None, oversample_count=None, gt_reward=False, online_buf_len=None, offline_buf_len=None):
+	def transition_tuple(self, replay_iter, demo_iter=None, oversample_count=None, online_buf_len=None, offline_buf_len=None):
 		obs, action, reward, discount, next_obs, step_type, next_step_type = super().transition_tuple(replay_iter,
 																									  demo_iter=demo_iter,
 																									  oversample_count=oversample_count,
 																									  online_buf_len=online_buf_len,
 																									  offline_buf_len=offline_buf_len)
-		if gt_reward:
-			return (obs, action, reward, discount, next_obs, step_type, next_step_type)
-		else:
-			with torch.no_grad():
-				GAIL_reward = self.compute_reward(obs, action)
-			return (obs, action, GAIL_reward, discount, next_obs, step_type, next_step_type)
+		with torch.no_grad():
+			GAIL_reward = self.compute_reward(obs, action)
+		return (obs, action, GAIL_reward, discount, next_obs, step_type, next_step_type)
 
 
 class VICEAgent(DACAgent):
@@ -781,19 +778,15 @@ class VICEAgent(DACAgent):
 		else:
 			return actual_reward, sig_term
 
-	def transition_tuple(self, replay_iter, demo_iter=None, oversample_count=None, gt_reward=False, online_buf_len=None, offline_buf_len=None):
+	def transition_tuple(self, replay_iter, demo_iter=None, oversample_count=None, online_buf_len=None, offline_buf_len=None):
 		obs, action, reward, discount, next_obs, step_type, next_step_type = super().transition_tuple(replay_iter,
 																									  demo_iter=demo_iter,
 																									  oversample_count=oversample_count,
-																									  gt_reward=gt_reward,
 																									  online_buf_len=online_buf_len,
 																									  offline_buf_len=offline_buf_len)
-		if gt_reward:
-			return (obs, action, reward, discount, next_obs, step_type, next_step_type)
-		else:
-			with torch.no_grad():
-				VICE_reward = self.compute_reward(next_obs, None)
-			return (obs, action, VICE_reward, discount, next_obs, step_type, next_step_type)
+		with torch.no_grad():
+			VICE_reward = self.compute_reward(next_obs, None)
+		return (obs, action, VICE_reward, discount, next_obs, step_type, next_step_type)
 
 class REDQFrankaAgent(REDQAgent):
 	def __init__(self, *agent_args, **agent_kwargs):
@@ -1107,7 +1100,7 @@ class VICEFrankaAgent(REDQFrankaAgent):
 		else:
 			return actual_reward, sig_term
 
-	def transition_tuple(self, replay_iter, demo_iter=None, oversample_count=None, gt_reward=False):
+	def transition_tuple(self, replay_iter, demo_iter=None, oversample_count=None):
 		if self._skip_reward_computation:
 			return super().transition_tuple(replay_iter, demo_iter, oversample_count)
 
@@ -1115,8 +1108,7 @@ class VICEFrankaAgent(REDQFrankaAgent):
 																																    demo_iter=demo_iter,
 																																		    oversample_count=oversample_count)
 		
-		if gt_reward:
-			return (obs_img, obs_state, action, env_reward, discount, next_obs_img, next_obs_state, step_type, next_step_type)
+		return (obs_img, obs_state, action, env_reward, discount, next_obs_img, next_obs_state, step_type, next_step_type)
 
 		# VICE reward should be based on the next observation
 		next_obs_dict = {'images': next_obs_img, 'state': next_obs_state}

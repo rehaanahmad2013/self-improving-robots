@@ -42,9 +42,6 @@ eval_checkpoint_idx: ???
 num_eval_episodes: 20
 eval_every_frames: 5000
 
-gt_reward: true
-early_terminate: false
-
 forward_agent:
   _target_: agents.VICEAgent
   obs_shape: ??? # to be specified later
