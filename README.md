@@ -44,9 +44,9 @@ Monitor results:
 tensorboard --logdir exp_local
 ```
 
-To run ```medalplusplus.py``` to reproduce the robot experiments, please follow the instructions under the ```iris_robots``` submodule. Please also run:
+Run ```franka/medal_franka.py``` to reproduce the robot experiments -- please follow the instructions under the ```iris_robots``` submodule. Also run:
 ```
-git clone --recurse-submodules --remote-submodules https://github.com/ahmeda14960/iris_robots.git
+git clone --recurse-submodules https://github.com/ahmeda14960/iris_robots.git
 ```
 
 To fetch the latest version of our robot environment and the corresponding instructions. You will need to follow the instructions for demo collection
